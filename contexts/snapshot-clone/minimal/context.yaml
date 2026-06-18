@@ -1,0 +1,51 @@
+# contexts/snapshot-clone/minimal/context.yaml
+#
+# Minimal context snapshot definition.
+# This example is designed for local dry-runs and CI environments where
+# no real production infrastructure is available.
+#
+# Dry-run validation:
+#   brotni context validate --file context.yaml --dry-run
+
+apiVersion: brotni.dev/v1
+kind: ContextSnapshot
+
+metadata:
+  name: snapshot-clone-minimal
+  description: >
+    Minimal context snapshot for dry-runs and demos.
+    Uses synthetic stubs for all downstream dependencies.
+    No real infrastructure required.
+
+spec:
+  source:
+    type: synthetic  # Use "snapshot-clone" to pull from a real environment
+
+  config:
+    env:
+      FEATURE_NEW_ROUTING: "true"
+      CACHE_TTL_SECONDS: "60"
+      MAX_CONNECTIONS: "100"
+      LOG_LEVEL: "info"
+
+  dependencies:
+    stubs:
+      - name: downstream-api
+        type: http
+        bindAddress: "downstream-api:8080"
+        responses:
+          - path: /data
+            method: GET
+            status: 200
+            body: '{"items": [{"id": "item-001", "value": 42}, {"id": "item-002", "value": 17}]}'
+            latencyMs: 10
+
+          - path: /data
+            method: POST
+            status: 201
+            body: '{"id": "item-new", "created": true}'
+            latencyMs: 20
+
+  isolation:
+    networkPolicy: deny-external
+    clonePerCandidate: true

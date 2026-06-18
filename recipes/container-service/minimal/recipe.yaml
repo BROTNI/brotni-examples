@@ -1,0 +1,54 @@
+# recipes/container-service/minimal/recipe.yaml
+#
+# Minimal runtime recipe for a containerized HTTP service.
+# This recipe is the simplest possible starting point.
+# Copy it and adjust ports, env vars, and resources for your service.
+#
+# Dry-run validation:
+#   brotni recipe validate --file recipe.yaml --dry-run
+
+apiVersion: brotni.dev/v1
+kind: RuntimeRecipe
+
+metadata:
+  name: container-service-minimal
+  description: >
+    Minimal containerized HTTP service recipe.
+    Runs the candidate image, waits for /healthz, then routes traffic to port 8080.
+
+spec:
+  type: container-service
+
+  container:
+    ports:
+      - name: http
+        containerPort: 8080
+        protocol: TCP
+
+    env:
+      - name: ENV
+        value: simulation
+
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "256Mi"
+      limits:
+        cpu: "1000m"
+        memory: "512Mi"
+
+  readiness:
+    httpGet:
+      path: /healthz
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 2
+    failureThreshold: 15
+
+  traffic:
+    ingressPort: 8080
+    protocol: http
+
+  metrics:
+    prometheusPath: /metrics
+    prometheusPort: 8080

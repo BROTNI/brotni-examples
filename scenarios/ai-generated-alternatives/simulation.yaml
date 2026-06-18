@@ -1,0 +1,104 @@
+# scenarios/ai-generated-alternatives/simulation.yaml
+#
+# Compare AI-generated implementation alternatives against a hand-written baseline.
+# All four candidates run against the same dataset and are ranked by KPI results.
+
+apiVersion: brotni.dev/v1
+kind: SimulationCampaign
+
+metadata:
+  name: ai-generated-alternatives
+  description: >
+    Compare three AI-generated implementations against the current baseline.
+    Uses ranking strategy so all four candidates are scored and ordered.
+
+candidates:
+  - id: baseline
+    image: ghcr.io/brotni-examples/data-processor:main
+    role: baseline
+    description: Current hand-written implementation
+
+  - id: ai-option-a
+    image: ghcr.io/brotni-examples/data-processor:ai-iterative
+    role: challenger
+    description: AI-generated iterative approach — simple, low memory
+
+  - id: ai-option-b
+    image: ghcr.io/brotni-examples/data-processor:ai-batch
+    role: challenger
+    description: AI-generated batch-optimized approach — high throughput
+
+  - id: ai-option-c
+    image: ghcr.io/brotni-examples/data-processor:ai-cache
+    role: challenger
+    description: AI-generated cache-heavy approach — low repeat-query latency
+
+runtime:
+  type: container-service
+  container:
+    ports:
+      - name: http
+        containerPort: 8080
+    env:
+      - name: ENV
+        value: simulation
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "512Mi"
+      limits:
+        cpu: "2000m"
+        memory: "1Gi"
+  readiness:
+    httpGet:
+      path: /healthz
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 2
+    failureThreshold: 15
+
+context:
+  type: synthetic
+  isolation:
+    networkPolicy: deny-external
+    clonePerCandidate: true
+
+replay:
+  source:
+    type: dataset
+    path: datasets/sample-events/data-processing-requests.jsonl
+  speedFactor: 0
+
+scoring:
+  strategy: rank  # rank all candidates against each other
+  kpis:
+    - name: p99_latency_ms
+      metric: http_request_duration_p99
+      unit: ms
+      direction: lower_is_better
+      weight: 0.4
+
+    - name: throughput_rps
+      metric: http_requests_per_second
+      unit: rps
+      direction: higher_is_better
+      weight: 0.3
+
+    - name: error_rate
+      metric: http_error_rate
+      unit: ratio
+      direction: lower_is_better
+      weight: 0.2
+
+    - name: memory_usage_mb
+      metric: container_memory_usage_mb
+      unit: mb
+      direction: lower_is_better
+      weight: 0.1
+
+  promotionThreshold:
+    minScoreImprovement: 0.0  # promote the winner regardless of margin
+
+notifications:
+  githubPrComment: true
+  failOnNoImprovement: false

@@ -1,0 +1,16 @@
+{"timestamp":"2024-01-15T00:00:00.001Z","method":"POST","path":"/api/process","status":200,"latency_ms":45,"payload_bytes":4096,"user_agent":"LoadGen/1.0"}
+{"timestamp":"2024-01-15T00:00:00.010Z","method":"POST","path":"/api/process","status":200,"latency_ms":48,"payload_bytes":4096,"user_agent":"LoadGen/1.0"}
+{"timestamp":"2024-01-15T00:00:00.020Z","method":"POST","path":"/api/process","status":200,"latency_ms":51,"payload_bytes":8192,"user_agent":"LoadGen/1.0"}
+{"timestamp":"2024-01-15T00:00:00.030Z","method":"POST","path":"/api/process","status":200,"latency_ms":53,"payload_bytes":4096,"user_agent":"LoadGen/1.0"}
+{"timestamp":"2024-01-15T00:00:00.040Z","method":"POST","path":"/api/process","status":200,"latency_ms":55,"payload_bytes":4096,"user_agent":"LoadGen/1.0"}
+{"timestamp":"2024-01-15T00:00:10.000Z","method":"POST","path":"/api/process","status":200,"latency_ms":72,"payload_bytes":4096,"user_agent":"LoadGen/1.0"}
+{"timestamp":"2024-01-15T00:00:10.010Z","method":"POST","path":"/api/process","status":200,"latency_ms":78,"payload_bytes":4096,"user_agent":"LoadGen/1.0"}
+{"timestamp":"2024-01-15T00:00:10.020Z","method":"POST","path":"/api/process","status":200,"latency_ms":84,"payload_bytes":8192,"user_agent":"LoadGen/1.0"}
+{"timestamp":"2024-01-15T00:00:20.000Z","method":"POST","path":"/api/process","status":200,"latency_ms":120,"payload_bytes":4096,"user_agent":"LoadGen/1.0"}
+{"timestamp":"2024-01-15T00:00:20.010Z","method":"POST","path":"/api/process","status":200,"latency_ms":135,"payload_bytes":4096,"user_agent":"LoadGen/1.0"}
+{"timestamp":"2024-01-15T00:00:20.020Z","method":"POST","path":"/api/process","status":500,"latency_ms":142,"payload_bytes":4096,"user_agent":"LoadGen/1.0"}
+{"timestamp":"2024-01-15T00:00:30.000Z","method":"POST","path":"/api/process","status":500,"latency_ms":180,"payload_bytes":4096,"user_agent":"LoadGen/1.0"}
+{"timestamp":"2024-01-15T00:00:30.010Z","method":"POST","path":"/api/process","status":500,"latency_ms":195,"payload_bytes":4096,"user_agent":"LoadGen/1.0"}
+{"timestamp":"2024-01-15T00:00:30.020Z","method":"POST","path":"/api/process","status":503,"latency_ms":5000,"payload_bytes":4096,"user_agent":"LoadGen/1.0"}
+{"timestamp":"2024-01-15T00:00:30.030Z","method":"POST","path":"/api/process","status":503,"latency_ms":5000,"payload_bytes":4096,"user_agent":"LoadGen/1.0"}
+{"timestamp":"2024-01-15T00:00:30.040Z","method":"GET","path":"/healthz","status":503,"latency_ms":5000,"payload_bytes":0,"user_agent":"Probe/1.0"}

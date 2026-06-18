@@ -1,0 +1,81 @@
+# gitlab-ci/mr-oci-candidate/simulate-mr.yml
+#
+# Include this template from your .gitlab-ci.yml:
+#
+#   include:
+#     - local: 'gitlab-ci/mr-oci-candidate/simulate-mr.yml'
+#
+# Required CI/CD variables:
+#   BROTNI_API_TOKEN  — your Brotni API token
+
+stages:
+  - build
+  - simulate
+
+# ─── Build ───────────────────────────────────────────────────────────────────
+
+build-mr-image:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  only:
+    - merge_requests
+  variables:
+    IMAGE_TAG: $CI_REGISTRY_IMAGE:mr-$CI_MERGE_REQUEST_IID
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker build -t "$IMAGE_TAG" .
+    - docker push "$IMAGE_TAG"
+  artifacts:
+    reports:
+      dotenv: build.env
+  after_script:
+    - echo "CHALLENGER_IMAGE=$CI_REGISTRY_IMAGE:mr-$CI_MERGE_REQUEST_IID" >> build.env
+
+# ─── Simulate ────────────────────────────────────────────────────────────────
+
+simulate-mr-candidate:
+  stage: simulate
+  image: alpine:3.19
+  only:
+    - merge_requests
+  needs:
+    - build-mr-image
+  variables:
+    BASELINE_IMAGE: $CI_REGISTRY_IMAGE:main
+  before_script:
+    - apk add --no-cache curl jq
+    - curl -sSL https://get.brotni.dev/install.sh | sh
+  script:
+    - |
+      brotni simulate run \
+        --simulation gitlab-ci/mr-oci-candidate/simulation.yaml \
+        --candidate id=baseline,image=${BASELINE_IMAGE},role=baseline \
+        --candidate id=challenger,image=${CHALLENGER_IMAGE},role=challenger \
+        --mr ${CI_MERGE_REQUEST_IID} \
+        --output json > simulation-result.json
+
+      SCORE=$(jq -r '.score' simulation-result.json)
+      PROMOTED=$(jq -r '.promoted' simulation-result.json)
+      REPORT_URL=$(jq -r '.reportUrl' simulation-result.json)
+
+      echo "Simulation score: ${SCORE}"
+      echo "Promoted: ${PROMOTED}"
+
+      # Post results as MR note via GitLab API
+      NOTE_BODY="## Brotni simulation results\n\n"
+      NOTE_BODY+="**Score:** ${SCORE}\n"
+      NOTE_BODY+="**Status:** $([ "${PROMOTED}" = "true" ] && echo '✅ Beats baseline' || echo '⚠️ No improvement')\n\n"
+      NOTE_BODY+="[View full report](${REPORT_URL})"
+
+      curl --silent --request POST \
+        --header "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" \
+        --header "Content-Type: application/json" \
+        --data "{\"body\": \"${NOTE_BODY}\"}" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}/notes"
+  artifacts:
+    paths:
+      - simulation-result.json
+    expire_in: 7 days
+  allow_failure: true  # set to false to block MR on no improvement

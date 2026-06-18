@@ -1,0 +1,74 @@
+# github-actions/multi-pr-campaign/campaign.yaml
+#
+# Multi-candidate campaign spec.
+# Candidates are injected at runtime via --candidate flags in the workflow.
+
+apiVersion: brotni.dev/v1
+kind: SimulationCampaign
+
+metadata:
+  name: nightly-pr-campaign
+  description: Nightly comparison of all PRs labeled "simulate"
+
+# Candidates are supplied dynamically by the workflow at runtime.
+# This spec defines the baseline and the shared settings.
+candidates:
+  - id: baseline
+    role: baseline
+    # image is injected by the workflow via --candidate flag
+
+runtime:
+  type: container-service
+  container:
+    ports:
+      - name: http
+        containerPort: 8080
+    env:
+      - name: ENV
+        value: simulation
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "256Mi"
+  readiness:
+    httpGet:
+      path: /healthz
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 2
+    failureThreshold: 15
+
+context:
+  type: snapshot-clone
+  isolation:
+    networkPolicy: deny-external
+    clonePerCandidate: true
+
+replay:
+  source:
+    type: dataset
+    path: datasets/sample-events/http-requests.jsonl
+  speedFactor: 0
+
+scoring:
+  strategy: rank  # rank all challengers against each other and the baseline
+  kpis:
+    - name: p99_latency_ms
+      metric: http_request_duration_p99
+      unit: ms
+      direction: lower_is_better
+      weight: 0.5
+    - name: error_rate
+      metric: http_error_rate
+      unit: ratio
+      direction: lower_is_better
+      weight: 0.3
+    - name: cost_per_request
+      metric: estimated_cost_per_request
+      unit: usd
+      direction: lower_is_better
+      weight: 0.2
+
+notifications:
+  githubPrComment: true
+  failOnNoImprovement: false
