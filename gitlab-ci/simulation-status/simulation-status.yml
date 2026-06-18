@@ -1,0 +1,67 @@
+# gitlab-ci/simulation-status/simulation-status.yml
+#
+# Poll for the status of a previously submitted Brotni simulation.
+# Include this template and set BROTNI_SIMULATION_ID.
+
+stages:
+  - simulation-gate
+
+wait-for-simulation:
+  stage: simulation-gate
+  image: alpine:3.19
+  variables:
+    # Set this to the simulation ID returned by a previous run.
+    # Example: BROTNI_SIMULATION_ID: "sim_abc123"
+    BROTNI_SIMULATION_ID: ""
+    POLL_INTERVAL_SECONDS: "15"
+    MAX_WAIT_SECONDS: "600"
+  before_script:
+    - apk add --no-cache curl jq
+    - curl -sSL https://get.brotni.dev/install.sh | sh
+  script:
+    - |
+      if [ -z "${BROTNI_SIMULATION_ID}" ]; then
+        echo "BROTNI_SIMULATION_ID is not set. Skipping."
+        exit 0
+      fi
+
+      elapsed=0
+      while [ "$elapsed" -lt "$MAX_WAIT_SECONDS" ]; do
+        STATUS=$(brotni simulate status --id "${BROTNI_SIMULATION_ID}" --output json | jq -r '.status')
+
+        echo "Simulation ${BROTNI_SIMULATION_ID} status: ${STATUS} (${elapsed}s elapsed)"
+
+        case "${STATUS}" in
+          completed)
+            echo "Simulation completed successfully."
+            brotni simulate results --id "${BROTNI_SIMULATION_ID}" --output json > simulation-result.json
+            break
+            ;;
+          failed|error)
+            echo "Simulation failed."
+            exit 1
+            ;;
+          running|pending|queued)
+            sleep "${POLL_INTERVAL_SECONDS}"
+            elapsed=$((elapsed + POLL_INTERVAL_SECONDS))
+            ;;
+          *)
+            echo "Unknown status: ${STATUS}"
+            exit 1
+            ;;
+        esac
+      done
+
+      if [ "$elapsed" -ge "$MAX_WAIT_SECONDS" ]; then
+        echo "Timed out waiting for simulation after ${MAX_WAIT_SECONDS}s."
+        exit 1
+      fi
+  artifacts:
+    paths:
+      - simulation-result.json
+    expire_in: 7 days
+    when: always
+  rules:
+    - if: '$BROTNI_SIMULATION_ID != ""'
+      when: on_success
+    - when: never

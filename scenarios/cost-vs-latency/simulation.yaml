@@ -1,0 +1,101 @@
+# scenarios/cost-vs-latency/simulation.yaml
+#
+# Compare a cost-optimized configuration (2 replicas) against the
+# current 4-replica baseline under realistic traffic load.
+
+apiVersion: brotni.dev/v1
+kind: SimulationCampaign
+
+metadata:
+  name: cost-vs-latency
+  description: >
+    Evaluate whether reducing replicas from 4 to 2 causes unacceptable latency
+    under peak traffic. Uses a synthetic dataset with burst patterns.
+
+candidates:
+  - id: baseline
+    image: ghcr.io/brotni-examples/my-service:main
+    role: baseline
+    description: Current production — 4 replicas
+    runtimeOverrides:
+      replicas: 4
+
+  - id: challenger
+    image: ghcr.io/brotni-examples/my-service:main
+    role: challenger
+    description: Cost-optimized — 2 replicas (same image, different scale)
+    runtimeOverrides:
+      replicas: 2
+
+runtime:
+  type: container-service
+  container:
+    ports:
+      - name: http
+        containerPort: 8080
+    env:
+      - name: ENV
+        value: simulation
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "256Mi"
+      limits:
+        cpu: "1000m"
+        memory: "512Mi"
+  readiness:
+    httpGet:
+      path: /healthz
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 2
+    failureThreshold: 15
+
+context:
+  type: synthetic
+  isolation:
+    networkPolicy: deny-external
+    clonePerCandidate: true
+
+replay:
+  source:
+    type: dataset
+    path: datasets/sample-events/http-requests.jsonl
+  speedFactor: 0
+
+scoring:
+  strategy: compare
+  kpis:
+    - name: p99_latency_ms
+      metric: http_request_duration_p99
+      unit: ms
+      direction: lower_is_better
+      weight: 0.4
+
+    - name: p50_latency_ms
+      metric: http_request_duration_p50
+      unit: ms
+      direction: lower_is_better
+      weight: 0.2
+
+    - name: error_rate
+      metric: http_error_rate
+      unit: ratio
+      direction: lower_is_better
+      weight: 0.2
+
+    - name: cost_per_request
+      metric: estimated_cost_per_request
+      unit: usd
+      direction: lower_is_better
+      weight: 0.2
+      description: "Cost KPI — the challenger should win here"
+
+  # Accept the challenger even if latency is slightly worse,
+  # as long as the weighted score (factoring in cost savings) improves.
+  promotionThreshold:
+    minScoreImprovement: 0.0
+
+notifications:
+  githubPrComment: false
+  failOnNoImprovement: false

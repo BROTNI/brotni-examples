@@ -1,0 +1,94 @@
+# scenarios/incident-replay/simulation.yaml
+#
+# Replay a captured incident to verify a fix before production deployment.
+# The challenger must survive the same traffic pattern that caused the incident.
+
+apiVersion: brotni.dev/v1
+kind: SimulationCampaign
+
+metadata:
+  name: incident-replay
+  description: >
+    Replay the 2024-01-15 memory-leak incident against the fix candidate.
+    The fix must survive the sustained-load burst without OOM-crashing.
+
+candidates:
+  - id: baseline
+    image: ghcr.io/brotni-examples/my-service:v1.2.3
+    role: baseline
+    description: Version running during the incident (expected to fail under this load)
+
+  - id: fix-candidate
+    image: ghcr.io/brotni-examples/my-service:v1.2.4-fix
+    role: challenger
+    description: Patched version with memory leak fix
+
+runtime:
+  type: container-service
+  container:
+    ports:
+      - name: http
+        containerPort: 8080
+    env:
+      - name: ENV
+        value: simulation
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "512Mi"
+      limits:
+        cpu: "2000m"
+        memory: "1Gi"  # generous limit so we can observe actual behavior
+  readiness:
+    httpGet:
+      path: /healthz
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 2
+    failureThreshold: 15
+
+context:
+  type: synthetic
+  isolation:
+    networkPolicy: deny-external
+    clonePerCandidate: true
+
+replay:
+  source:
+    type: dataset
+    # Synthetic dataset modeled on the incident traffic pattern.
+    # Replace with your real captured dataset if available.
+    path: datasets/sample-events/incident-traffic.jsonl
+  speedFactor: 1.0  # replay at real-time speed to surface memory growth
+
+scoring:
+  strategy: compare
+  kpis:
+    - name: crash_count
+      metric: container_restart_count
+      unit: count
+      direction: lower_is_better
+      weight: 0.5
+      description: "Primary KPI — fix must not crash"
+
+    - name: memory_growth_mb
+      metric: container_memory_growth_mb
+      unit: mb
+      direction: lower_is_better
+      weight: 0.3
+      description: "Memory must not grow unboundedly during the replay"
+
+    - name: error_rate
+      metric: http_error_rate
+      unit: ratio
+      direction: lower_is_better
+      weight: 0.2
+
+  promotionThreshold:
+    # The fix MUST have zero crashes. Use a threshold job in your pipeline
+    # to enforce this as a hard gate rather than a weighted score.
+    minScoreImprovement: 0.0
+
+notifications:
+  githubPrComment: true
+  failOnNoImprovement: false

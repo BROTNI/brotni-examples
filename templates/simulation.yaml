@@ -1,0 +1,90 @@
+# templates/simulation.yaml
+#
+# A reusable template for defining a Brotni simulation campaign.
+# Copy and adapt this file to your own repository.
+#
+# Dry-run validation:
+#   brotni simulate validate --file simulation.yaml --dry-run
+
+apiVersion: brotni.dev/v1
+kind: SimulationCampaign
+
+metadata:
+  name: my-service-simulation
+  description: Compare a challenger candidate against the current baseline
+
+# ─── Candidates ──────────────────────────────────────────────────────────────
+candidates:
+  - id: baseline
+    image: ghcr.io/my-org/my-service:main
+    role: baseline
+
+  - id: challenger
+    image: ghcr.io/my-org/my-service:pr-${PR_NUMBER}
+    role: challenger
+
+# ─── Runtime ─────────────────────────────────────────────────────────────────
+runtime:
+  # Reference a runtime recipe file, or inline the spec here.
+  # See templates/runtime.container-service.yaml for the recipe format.
+  recipeRef: runtime.container-service.yaml
+
+# ─── Context ─────────────────────────────────────────────────────────────────
+context:
+  # Reference a context snapshot file, or inline the spec here.
+  # See templates/context.snapshot.yaml for the context format.
+  contextRef: context.snapshot.yaml
+
+# ─── Replay ──────────────────────────────────────────────────────────────────
+replay:
+  # Source of events to replay against the candidates.
+  # Use a dataset path for local/synthetic data, or a live capture spec.
+  source:
+    type: dataset
+    path: datasets/sample-events/http-requests.jsonl
+
+  # How fast to replay relative to original timestamps.
+  # 1.0 = real time, 10.0 = 10x faster, 0 = as fast as possible
+  speedFactor: 0
+
+  # Optional: replay only a time window from the dataset
+  # window:
+  #   start: "2024-01-01T00:00:00Z"
+  #   end:   "2024-01-01T01:00:00Z"
+
+# ─── Scoring ─────────────────────────────────────────────────────────────────
+scoring:
+  strategy: compare  # compare | rank | threshold
+
+  kpis:
+    - name: p99_latency_ms
+      source: metrics
+      metric: http_request_duration_p99
+      unit: ms
+      direction: lower_is_better
+      weight: 0.5
+
+    - name: error_rate
+      source: metrics
+      metric: http_error_rate
+      unit: ratio
+      direction: lower_is_better
+      weight: 0.3
+
+    - name: cost_per_request
+      source: metrics
+      metric: estimated_cost_per_request
+      unit: usd
+      direction: lower_is_better
+      weight: 0.2
+
+  # A candidate must beat the baseline on the weighted score to be promoted.
+  promotionThreshold:
+    minScoreImprovement: 0.01  # 1% improvement required
+
+# ─── Notifications ───────────────────────────────────────────────────────────
+notifications:
+  # Post results as a PR comment (requires BROTNI_API_TOKEN secret).
+  githubPrComment: true
+  # Fail the CI job if the challenger does not meet the promotion threshold.
+  failOnNoImprovement: false

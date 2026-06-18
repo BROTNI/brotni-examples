@@ -1,0 +1,142 @@
+# github-actions/multi-pr-campaign/workflow.yml
+#
+# Copy this file to .github/workflows/simulate-campaign.yml in your repository.
+#
+# Runs a nightly campaign comparing all PRs labeled "simulate" against main.
+
+name: Nightly simulation campaign
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 02:00 UTC every night
+  workflow_dispatch:       # allow manual trigger
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  collect-candidates:
+    name: Collect PRs to simulate
+    runs-on: ubuntu-latest
+    outputs:
+      candidates: ${{ steps.list.outputs.candidates }}
+
+    steps:
+      - name: List open PRs labeled "simulate"
+        id: list
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 20,
+            });
+            const labeled = prs.filter(pr =>
+              pr.labels.some(l => l.name === 'simulate')
+            );
+            const candidates = labeled.map(pr => ({
+              id: `pr-${pr.number}`,
+              pr: pr.number,
+              sha: pr.head.sha,
+              ref: pr.head.ref,
+            }));
+            core.setOutput('candidates', JSON.stringify(candidates));
+
+  build-images:
+    name: Build image for PR ${{ matrix.candidate.pr }}
+    needs: collect-candidates
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        candidate: ${{ fromJson(needs.collect-candidates.outputs.candidates) }}
+      fail-fast: false
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.candidate.sha }}
+
+      - name: Log in to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ matrix.candidate.pr }}
+
+  run-campaign:
+    name: Run simulation campaign
+    needs: [collect-candidates, build-images]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Install Brotni CLI
+        run: curl -sSL https://get.brotni.dev/install.sh | sh
+
+      - name: Run campaign
+        env:
+          BROTNI_API_TOKEN: ${{ secrets.BROTNI_API_TOKEN }}
+          CANDIDATES_JSON: ${{ needs.collect-candidates.outputs.candidates }}
+        run: |
+          # Build --candidate flags from the collected PRs
+          CANDIDATE_FLAGS=""
+          for row in $(echo "${CANDIDATES_JSON}" | jq -c '.[]'); do
+            id=$(echo "$row" | jq -r '.id')
+            pr=$(echo "$row" | jq -r '.pr')
+            image="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${pr}"
+            CANDIDATE_FLAGS="${CANDIDATE_FLAGS} --candidate id=${id},image=${image},role=challenger"
+          done
+
+          brotni campaign run \
+            --campaign github-actions/multi-pr-campaign/campaign.yaml \
+            --candidate id=baseline,image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main,role=baseline \
+            ${CANDIDATE_FLAGS} \
+            --output json > campaign-result.json
+
+      - name: Post results to each PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const result = require('./campaign-result.json');
+            const candidates = JSON.parse(process.env.CANDIDATES_JSON);
+
+            for (const candidate of candidates) {
+              const cr = (result.candidates ?? []).find(c => c.id === candidate.id);
+              if (!cr) continue;
+
+              const body = [
+                '## Brotni campaign results',
+                '',
+                `**Rank:** ${cr.rank} of ${result.candidates.length}`,
+                `**Score:** ${cr.score}`,
+                '',
+                `[View full campaign report](${result.reportUrl ?? '#'})`,
+              ].join('\n');
+
+              await github.rest.issues.createComment({
+                issue_number: candidate.pr,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body,
+              });
+            }
+        env:
+          CANDIDATES_JSON: ${{ needs.collect-candidates.outputs.candidates }}

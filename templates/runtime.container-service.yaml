@@ -1,0 +1,79 @@
+# templates/runtime.container-service.yaml
+#
+# Runtime recipe for a containerized HTTP service candidate.
+# Brotni will start this container, wait for it to be ready, then
+# route replayed traffic to it and collect metrics.
+#
+# Dry-run validation:
+#   brotni recipe validate --file runtime.container-service.yaml --dry-run
+
+apiVersion: brotni.dev/v1
+kind: RuntimeRecipe
+
+metadata:
+  name: container-service-minimal
+  description: Run a single containerized HTTP service
+
+spec:
+  type: container-service
+
+  # ─── Container ─────────────────────────────────────────────────────────────
+  container:
+    # The image is supplied by the simulation campaign (candidates[].image).
+    # Override the entrypoint or command if needed.
+    # command: ["./my-server"]
+    # args: ["--port", "8080"]
+
+    ports:
+      - name: http
+        containerPort: 8080
+        protocol: TCP
+
+    env:
+      - name: ENV
+        value: simulation
+      - name: LOG_LEVEL
+        value: info
+      # Never put real secrets here. Use secretRefs for sensitive values.
+      # secretRefs:
+      #   - name: DB_PASSWORD
+      #     secretName: my-service-db-secret
+      #     key: password
+
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "256Mi"
+      limits:
+        cpu: "1000m"
+        memory: "512Mi"
+
+  # ─── Readiness ─────────────────────────────────────────────────────────────
+  readiness:
+    httpGet:
+      path: /healthz
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 2
+    failureThreshold: 15
+
+  # ─── Traffic ───────────────────────────────────────────────────────────────
+  traffic:
+    ingressPort: 8080
+    protocol: http
+
+    # Optional: rewrite paths before forwarding to the candidate
+    # pathRewrite:
+    #   - from: /api/v1
+    #     to: /api/v2
+
+  # ─── Metrics collection ────────────────────────────────────────────────────
+  metrics:
+    # Brotni scrapes Prometheus-format metrics from this endpoint.
+    prometheusPath: /metrics
+    prometheusPort: 8080
+
+    # Built-in metrics collected automatically (no configuration needed):
+    #   http_request_duration_p50/p90/p99
+    #   http_error_rate
+    #   http_requests_total

@@ -1,0 +1,30 @@
+{
+  "_comment": "Synthetic sample metrics. Not real data.",
+  "snapshot": {
+    "service": "my-service",
+    "environment": "simulation",
+    "capturedAt": "2024-01-15T00:00:00Z",
+    "durationSeconds": 300
+  },
+  "http": {
+    "requests_total": 12450,
+    "errors_total": 87,
+    "error_rate": 0.007,
+    "latency_p50_ms": 12,
+    "latency_p90_ms": 28,
+    "latency_p99_ms": 95,
+    "latency_p999_ms": 340,
+    "throughput_rps": 41.5
+  },
+  "resources": {
+    "cpu_usage_millicores_avg": 210,
+    "cpu_usage_millicores_p99": 480,
+    "memory_usage_mb_avg": 180,
+    "memory_usage_mb_max": 220,
+    "gc_pause_ms_p99": 4.2
+  },
+  "cost": {
+    "estimated_usd_per_1k_requests": 0.0042,
+    "estimated_monthly_usd_at_current_rps": 5.30
+  }
+}

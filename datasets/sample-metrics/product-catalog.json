@@ -1,0 +1,45 @@
+{
+  "_comment": "Synthetic product catalog for seeding context snapshots. Not real data.",
+  "products": [
+    {
+      "id": "prod-001",
+      "name": "Widget Alpha",
+      "category": "widgets",
+      "price_usd": 9.99,
+      "stock": 1500,
+      "weight_g": 120
+    },
+    {
+      "id": "prod-002",
+      "name": "Widget Beta",
+      "category": "widgets",
+      "price_usd": 14.99,
+      "stock": 800,
+      "weight_g": 240
+    },
+    {
+      "id": "prod-003",
+      "name": "Gadget One",
+      "category": "gadgets",
+      "price_usd": 49.99,
+      "stock": 200,
+      "weight_g": 580
+    },
+    {
+      "id": "prod-004",
+      "name": "Gadget Two",
+      "category": "gadgets",
+      "price_usd": 79.99,
+      "stock": 75,
+      "weight_g": 920
+    },
+    {
+      "id": "prod-005",
+      "name": "Accessory Pack",
+      "category": "accessories",
+      "price_usd": 4.99,
+      "stock": 5000,
+      "weight_g": 45
+    }
+  ]
+}

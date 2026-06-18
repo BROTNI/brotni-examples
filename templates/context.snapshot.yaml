@@ -1,0 +1,78 @@
+# templates/context.snapshot.yaml
+#
+# Context snapshot specification.
+# A context captures the state of the environment your service runs in:
+# configuration, feature flags, downstream dependencies, and data state.
+# Brotni clones this context for each simulation run so candidates are
+# isolated yet realistic.
+#
+# Dry-run validation:
+#   brotni context validate --file context.snapshot.yaml --dry-run
+
+apiVersion: brotni.dev/v1
+kind: ContextSnapshot
+
+metadata:
+  name: my-service-context
+  description: Minimal context snapshot for local development and CI dry-runs
+
+spec:
+  # ─── Source ────────────────────────────────────────────────────────────────
+  # Where to clone the context from.
+  # In dry-run mode this section is skipped; synthetic stubs are used instead.
+  source:
+    type: snapshot-clone
+    # environment: production
+    # region: us-east-1
+    # capturedAt: "2024-01-15T00:00:00Z"  # Pin to a specific snapshot
+
+  # ─── Configuration ─────────────────────────────────────────────────────────
+  config:
+    # Key/value pairs injected as environment variables into the candidate.
+    # These represent the config your service reads at startup.
+    env:
+      FEATURE_NEW_ROUTING: "true"
+      CACHE_TTL_SECONDS: "60"
+      MAX_CONNECTIONS: "100"
+      # Never include real secrets here.
+
+    # Optional: mount a config file into the candidate container.
+    # files:
+    #   - path: /etc/my-service/config.json
+    #     content: |
+    #       {"timeout": 30, "retries": 3}
+
+  # ─── Downstream dependencies ───────────────────────────────────────────────
+  dependencies:
+    # Mock or stub downstream services so the simulation is self-contained.
+    # Each stub responds with realistic but synthetic data.
+    stubs:
+      - name: payment-service
+        type: http
+        bindAddress: "payment-service:8080"
+        responses:
+          - path: /charge
+            method: POST
+            status: 200
+            body: '{"status": "ok", "transaction_id": "txn_stub_001"}'
+            latencyMs: 15
+
+      - name: inventory-db
+        type: postgres
+        # Use the synthetic dataset for query results instead of a real DB.
+        datasetRef: datasets/sample-events/db-queries.jsonl
+
+  # ─── Data state ────────────────────────────────────────────────────────────
+  data:
+    # Seed data loaded into the context before the simulation starts.
+    # All data is synthetic — never use real customer records.
+    seeds:
+      - name: product-catalog
+        source: datasets/sample-metrics/product-catalog.json
+
+  # ─── Isolation ─────────────────────────────────────────────────────────────
+  isolation:
+    # Ensure the simulation cannot reach real external services.
+    networkPolicy: deny-external
+    # Each candidate gets its own isolated context clone.
+    clonePerCandidate: true

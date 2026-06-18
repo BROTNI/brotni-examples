@@ -1,0 +1,74 @@
+# gitlab-ci/mr-oci-candidate/simulation.yaml
+#
+# Simulation spec for GitLab MR candidate simulations.
+
+apiVersion: brotni.dev/v1
+kind: SimulationCampaign
+
+metadata:
+  name: mr-candidate-simulation
+  description: Compare MR candidate against the main branch baseline
+
+candidates:
+  - id: baseline
+    role: baseline
+  - id: challenger
+    role: challenger
+
+runtime:
+  type: container-service
+  container:
+    ports:
+      - name: http
+        containerPort: 8080
+    env:
+      - name: ENV
+        value: simulation
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "256Mi"
+  readiness:
+    httpGet:
+      path: /healthz
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 2
+    failureThreshold: 15
+
+context:
+  type: snapshot-clone
+  isolation:
+    networkPolicy: deny-external
+    clonePerCandidate: true
+
+replay:
+  source:
+    type: dataset
+    path: datasets/sample-events/http-requests.jsonl
+  speedFactor: 0
+
+scoring:
+  strategy: compare
+  kpis:
+    - name: p99_latency_ms
+      metric: http_request_duration_p99
+      unit: ms
+      direction: lower_is_better
+      weight: 0.5
+    - name: error_rate
+      metric: http_error_rate
+      unit: ratio
+      direction: lower_is_better
+      weight: 0.3
+    - name: cost_per_request
+      metric: estimated_cost_per_request
+      unit: usd
+      direction: lower_is_better
+      weight: 0.2
+  promotionThreshold:
+    minScoreImprovement: 0.01
+
+notifications:
+  gitlabMrNote: true
+  failOnNoImprovement: false
