@@ -39,29 +39,32 @@ All three are compared on the **same goals** (latency, cost, resilience) and the
    ```bash
    brotni validate campaign scenarios/campaign-golden-path/.brotni/simulation.yaml
    ```
-4. **Create the campaign**:
+4. **Create the campaign** — this also registers the manifest's explicit
+   candidates and prints each one's studio-minted candidate ID:
    ```bash
+   export BROTNI_API_URL=http://localhost:8081   # a running studio/engine
    brotni campaign create --manifest scenarios/campaign-golden-path/.brotni/simulation.yaml
    ```
-5. **Discover candidates** — CI submits each labelled PR/MR via the action/component
-   (label-based discovery), or register them from the manifest:
+   Dynamic discovery (labelled PRs/MRs) is handled by the CI integrations;
+   `brotni campaign discover` surfaces that mode but does not register here.
+5. **Run & collect** — each candidate runs against the same `snapshot-clone`
+   context and produces metrics. For a local walkthrough you can hand-feed
+   metrics per candidate (demo affordance):
    ```bash
-   brotni campaign discover --id <campaign-id> \
-     --manifest scenarios/campaign-golden-path/.brotni/simulation.yaml
+   brotni campaign ingest --id <campaign-id> --candidate <candidate-id> \
+     --metrics p99_latency_ms=120,cost_per_1k_requests=8,resilience_score=70,error_rate=0.1
    ```
-6. **Run & collect** — each candidate runs against the same `snapshot-clone`
-   context; metrics are ingested per candidate.
-7. **Compare**:
+6. **Compare**:
    ```bash
    brotni campaign compare --id <campaign-id>
    ```
-8. **Decide**:
+7. **Decide**:
    ```bash
    brotni campaign decision --id <campaign-id> --format md
    ```
    Re-weighting goals creates a new scoring version — pass `--scoring-version N`
    to see how the winner changes without losing the original interpretation.
-9. **Status back** — the action publishes a campaign-scoped check + PR comment
+8. **Status back** — the action publishes a campaign-scoped check + PR comment
    ("Candidate N of M" + a comparison deep link); the component posts MR status
    and exposes `BROTNI_CAMPAIGN_URL`.
 
