@@ -1,0 +1,39 @@
+# config-bundle recipe for the configuration-only candidate in this campaign.
+# Schema: brotni-recipes/recipes/config-bundle/v1
+apiVersion: recipe.brotni.com/v1
+kind: ConfigBundleRecipe
+
+metadata:
+  name: routing-config-v7
+  description: A routing policy change evaluated as a configuration-only candidate.
+
+configuration:
+  format: yaml
+  appliesTo: routing-service
+  digest: sha256:cccc2222cccc2222cccc2222cccc2222cccc2222cccc2222cccc2222cccc2222
+  data: |
+    router:
+      strategy: weighted-latency
+      weights:
+        latency: 0.6
+        cost: 0.4
+      max_retries: 2
+
+validation:
+  rules:
+    - name: retries-bounded
+      expression: "router.max_retries <= 3"
+      severity: blocking
+
+apply:
+  mountPath: /brotni/input/config.yaml
+  envPrefix: ROUTING_
+
+outputs:
+  metrics:
+    path: /brotni/output/metrics.json
+    format: json
+
+reproducibility:
+  requireDigest: true
+  recordConfigDigest: true

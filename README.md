@@ -41,6 +41,7 @@ brotni-examples/
 │   └── snapshot-clone/
 │       └── minimal/
 ├── scenarios/                  # End-to-end simulation scenarios
+│   ├── campaign-golden-path/   # 3-candidate campaign in the implemented manifest format
 │   ├── routing-optimization/
 │   ├── cost-vs-latency/
 │   ├── incident-replay/
@@ -121,6 +122,8 @@ brotni simulate run \
 ### Sample simulation scenario
 
 See [`scenarios/routing-optimization/`](scenarios/routing-optimization/) for a complete end-to-end example comparing two routing algorithm implementations.
+
+See [`scenarios/campaign-golden-path/`](scenarios/campaign-golden-path/) for a Simulation Campaign that compares three heterogeneous candidates (two OCI images + one config bundle) using the implemented `.brotni/simulation.yaml` manifest, the `brotni-github-action`, and the `brotni-gitlab-component`.
 
 ---
 

@@ -1,0 +1,54 @@
+# Copy to .github/workflows/brotni-campaign.yml
+#
+# On every PR labeled `brotni-simulation-candidate`, build the image and submit
+# it as a campaign candidate for work item #482, publishing a campaign-scoped
+# check and PR comment with a comparison link.
+name: Brotni simulation campaign
+
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened]
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+  checks: write
+
+jobs:
+  simulate-candidate:
+    if: contains(github.event.pull_request.labels.*.name, 'brotni-simulation-candidate')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push candidate image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}
+
+      - name: Submit candidate to Brotni campaign
+        uses: BROTNI/brotni-github-action@v1
+        with:
+          brotni-api-url: ${{ secrets.BROTNI_API_URL }}
+          brotni-token: ${{ secrets.BROTNI_TOKEN }}
+          simulation-spec: scenarios/campaign-golden-path/.brotni/simulation.yaml
+          execution-recipe: scenarios/campaign-golden-path/runtime.container-service.yaml
+          artifact-uri: ghcr.io/${{ github.repository }}
+          artifact-digest: ${{ steps.build.outputs.digest }}
+          source-kind: container_image
+          work-item: "482"
+          candidate-label: brotni-simulation-candidate
+          wait: "true"
+          publish-check: "true"
+          publish-comment: "true"

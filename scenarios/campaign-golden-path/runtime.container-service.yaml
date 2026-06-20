@@ -1,0 +1,42 @@
+# container-service recipe for the OCI image candidates in this campaign.
+# Schema: brotni-recipes/recipes/container-service/v1
+apiVersion: recipe.brotni.com/v1
+kind: ContainerServiceRecipe
+
+metadata:
+  name: routing-service-recipe
+  description: Run the routing service in simulation mode and emit KPI metrics.
+
+candidate:
+  # The digest is supplied per-candidate by the campaign manifest; this image
+  # reference is the mutable form for documentation only.
+  image: ghcr.io/brotni-examples/routing-service@sha256:replace-with-digest
+
+runtime:
+  command: ["./routing-service", "--mode=simulation"]
+  env:
+    NODE_COUNT: "10"
+    LOG_LEVEL: "info"
+  ports:
+    - name: http
+      containerPort: 8080
+
+healthcheck:
+  http:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 3
+  periodSeconds: 2
+  timeoutSeconds: 60
+
+outputs:
+  metrics:
+    path: /brotni/output/metrics.json
+    format: json
+  decisions:
+    path: /brotni/output/decisions.ndjson
+    format: ndjson
+
+reproducibility:
+  requireImmutableImage: true
+  recordEnvironment: true

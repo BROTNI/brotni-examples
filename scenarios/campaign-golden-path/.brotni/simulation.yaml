@@ -1,0 +1,86 @@
+# Golden-path Simulation Campaign manifest.
+#
+# Compares THREE heterogeneous candidates under one work item, on the same
+# goals and constraints:
+#   - two pull requests built as OCI images (container_image)
+#   - one configuration change (config_bundle)
+#
+# This manifest uses the schema implemented by brotni-cli and the studio.
+# Validate it with:
+#   brotni validate campaign scenarios/campaign-golden-path/.brotni/simulation.yaml
+version: 1
+
+campaign:
+  title: "Improve routing under high traffic"
+  description: "Compare two routing-policy PRs and one config-only change on replayed production traffic."
+  linkedWorkItem:
+    provider: github
+    type: issue
+    repo: brotni-examples/routing-service
+    number: 482
+
+simulation:
+  environment: routing-sim-v3
+  dataset: dataset://routing/prod-replay/2026-05
+
+constraints:
+  - name: p99_latency
+    metric: p99_latency_ms
+    operator: "<"
+    threshold: 250
+    severity: blocking
+  - name: error_rate
+    metric: error_rate
+    operator: "<"
+    threshold: 0.2
+    severity: blocking
+
+goals:
+  - name: latency
+    metric: p99_latency_ms
+    weight: 0.40
+    direction: minimize
+  - name: cost
+    metric: cost_per_1k_requests
+    weight: 0.25
+    direction: minimize
+  - name: resilience
+    metric: resilience_score
+    weight: 0.35
+    direction: maximize
+
+candidates:
+  discovery:
+    mode: linked_pull_requests
+    label: brotni-simulation-candidate
+    workItem: 482
+  list:
+    - name: routing-policy-a
+      sourceKind: container_image
+      recipeRef: runtime.container-service.yaml
+      source:
+        provider: github
+        repository: brotni-examples/routing-service
+        changeRequestType: pull_request
+        changeRequestId: "501"
+        headSha: aaaa0000aaaa0000aaaa0000aaaa0000aaaa0000
+      artifact:
+        kind: oci-image
+        uri: ghcr.io/brotni-examples/routing-service
+        digest: sha256:aaaa0000aaaa0000aaaa0000aaaa0000aaaa0000aaaa0000aaaa0000aaaa0000
+    - name: routing-policy-b
+      sourceKind: container_image
+      recipeRef: runtime.container-service.yaml
+      source:
+        provider: github
+        repository: brotni-examples/routing-service
+        changeRequestType: pull_request
+        changeRequestId: "502"
+        headSha: bbbb1111bbbb1111bbbb1111bbbb1111bbbb1111
+      artifact:
+        kind: oci-image
+        uri: ghcr.io/brotni-examples/routing-service
+        digest: sha256:bbbb1111bbbb1111bbbb1111bbbb1111bbbb1111bbbb1111bbbb1111bbbb1111
+    - name: routing-config-v7
+      sourceKind: config_bundle
+      recipeRef: config-bundle.yaml
