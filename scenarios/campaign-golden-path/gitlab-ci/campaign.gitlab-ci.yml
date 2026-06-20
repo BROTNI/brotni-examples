@@ -1,30 +1,24 @@
-# GitLab CI: submit the current MR as a campaign candidate and publish status.
+# GitLab CI: register the current MR as a campaign candidate and report the decision.
 #
 # Set BROTNI_API_URL and BROTNI_TOKEN (Masked + Protected) and BROTNI_CAMPAIGN_ID
-# in Settings > CI/CD > Variables.
+# in Settings > CI/CD > Variables. Create the campaign first with
+# `brotni campaign create --manifest scenarios/campaign-golden-path/.brotni/simulation.yaml`.
 include:
   - component: $CI_SERVER_FQDN/brotni/brotni-gitlab-component/submit-candidate@~latest
     inputs:
       brotni_api_url: "$BROTNI_API_URL"
       brotni_token_variable: "BROTNI_TOKEN"
-      simulation_spec: "scenarios/campaign-golden-path/.brotni/simulation.yaml"
+      campaign_id: "$BROTNI_CAMPAIGN_ID"
       execution_recipe: "scenarios/campaign-golden-path/runtime.container-service.yaml"
       artifact_uri: "$CI_REGISTRY_IMAGE"
       artifact_digest: "$BROTNI_ARTIFACT_DIGEST"
-      campaign_id: "$BROTNI_CAMPAIGN_ID"
-      work_item: "482"
       source_kind: "container_image"
-      candidate_name: "$CI_PROJECT_NAME-mr-$CI_MERGE_REQUEST_IID"
-      wait: "true"
-      publish_status: "true"
 
   - component: $CI_SERVER_FQDN/brotni/brotni-gitlab-component/wait-for-result@~latest
     inputs:
       brotni_api_url: "$BROTNI_API_URL"
       brotni_token_variable: "BROTNI_TOKEN"
-      simulation_job_id: "$BROTNI_SIMULATION_JOB_ID"
-      poll_interval_seconds: "30"
-      timeout_minutes: "90"
+      campaign_id: "$BROTNI_CAMPAIGN_ID"
 
-# Downstream jobs can read BROTNI_STATUS, BROTNI_SCORE, BROTNI_REPORT_URL,
-# and BROTNI_CAMPAIGN_URL from the wait-for-result dotenv artifact.
+# The candidate is registered idempotently as mr-<iid>. Downstream jobs can read
+# BROTNI_CAMPAIGN_ID and BROTNI_CANDIDATE_ID from the dotenv artifacts.

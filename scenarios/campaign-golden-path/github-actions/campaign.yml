@@ -37,18 +37,16 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}
 
-      - name: Submit candidate to Brotni campaign
+      - name: Register candidate in the Brotni campaign
         uses: BROTNI/brotni-github-action@v1
         with:
           brotni-api-url: ${{ secrets.BROTNI_API_URL }}
           brotni-token: ${{ secrets.BROTNI_TOKEN }}
-          simulation-spec: scenarios/campaign-golden-path/.brotni/simulation.yaml
+          campaign-id: ${{ vars.BROTNI_CAMPAIGN_ID }}
           execution-recipe: scenarios/campaign-golden-path/runtime.container-service.yaml
           artifact-uri: ghcr.io/${{ github.repository }}
           artifact-digest: ${{ steps.build.outputs.digest }}
           source-kind: container_image
-          work-item: "482"
           candidate-label: brotni-simulation-candidate
-          wait: "true"
           publish-check: "true"
           publish-comment: "true"
